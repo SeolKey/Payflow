@@ -101,6 +101,12 @@ public class PaymentRestController {
             @RequestBody Map<String, Object> request
     ) {
         try {
+            log.info("========================================");
+            log.info("=== /api/pay/prepare 요청 수신 ===");
+            log.info("========================================");
+            log.info("요청 전체: {}", request);
+            log.info("요청 키 목록: {}", request.keySet());
+            
             String paymentId = (String) request.get("paymentId");  // 클라이언트에서 생성한 paymentId
             String orderId = (String) request.get("orderId");
             String orderName = (String) request.get("orderName");  // 필수: 주문명
@@ -109,6 +115,8 @@ public class PaymentRestController {
             Map<String, Object> deviceInfo = (Map<String, Object>) request.get("deviceInfo");  // 클라이언트에서 전달한 deviceInfo
 
             if (paymentId == null || orderId == null || orderName == null || amount == null) {
+                log.error("❌ 필수 파라미터 누락 - paymentId: {}, orderId: {}, orderName: {}, amount: {}", 
+                        paymentId, orderId, orderName, amount);
                 return ResponseEntity.badRequest().body(Map.of(
                         "success", false,
                         "message", "필수 파라미터가 누락되었습니다. (paymentId, orderId, orderName, amount)"
@@ -117,6 +125,27 @@ public class PaymentRestController {
 
             log.info("PortOne 결제 준비 요청 - paymentId: {}, orderId: {}, orderName: {}, amount: {}, deviceInfo: {}", 
                     paymentId, orderId, orderName, amount, deviceInfo);
+            
+            // deviceInfo 상세 확인
+            if (deviceInfo == null) {
+                log.warn("⚠️ deviceInfo가 null입니다. PortOneClient에서 기본값을 생성합니다.");
+                // deviceInfo가 null이면 빈 Map으로 전달 (PortOneClient에서 기본값 생성)
+                deviceInfo = new java.util.HashMap<>();
+            } else {
+                log.info("deviceInfo 상세: {}", deviceInfo);
+                log.info("deviceInfo 키 목록: {}", deviceInfo.keySet());
+                log.info("deviceInfo.platform: {}", deviceInfo.get("platform"));
+                log.info("deviceInfo.platformType: {}", deviceInfo.get("platformType"));
+                log.info("deviceInfo.ip: {}", deviceInfo.get("ip"));
+                log.info("deviceInfo.ipAddress: {}", deviceInfo.get("ipAddress"));
+            }
+
+            // deviceInfo가 비어있거나 필수 필드가 없으면 기본값 생성
+            if (deviceInfo.isEmpty() || (!deviceInfo.containsKey("platform") && !deviceInfo.containsKey("platformType"))) {
+                log.warn("⚠️ deviceInfo가 비어있거나 필수 필드가 없습니다. 기본값을 생성합니다.");
+                deviceInfo.put("platform", "PC");
+                deviceInfo.put("ipAddress", "127.0.0.1");
+            }
 
             // PortOneClient를 통해 결제 준비 (paymentId, orderName, deviceInfo 포함)
             portOneClient.preparePayment(paymentId, orderId, orderName, amount, deviceInfo);
