@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>결제 생성</title>
+</head>
+<body>
+
+<h1>결제 생성</h1>
+
+<form id="paymentForm">
+    <label>유저 ID:</label>
+    <input type="number" name="userId" value="1"><br><br>
+
+    <label>결제 금액:</label>
+    <input type="number" name="amount"><br><br>
+
+    <label>결제 방식:</label>
+    <select name="method">
+        <option value="card">카드</option>
+        <option value="vbank">가상계좌</option>
+    </select><br><br>
+
+    <button type="submit">결제 생성하기</button>
+</form>
+
+<script>
+    const form = document.getElementById("paymentForm");
+
+    form.addEventListener("submit", async function (event) {
+        event.preventDefault();  // <-- 폼 기본 submit 막기
+
+        const formData = new FormData(form);
+
+        const response = await fetch("/api/pay/create", {
+            method: "POST",
+            body: formData
+        });
+
+        const data = await response.json();
+
+        console.log("응답 데이터:", data);
+
+        if (data.success) {
+            window.location.href = data.redirectUrl;  // <-- 성공 시 화면 이동
+        } else {
+            alert("결제 생성 실패");
+        }
+    });
+</script>
+
+</body>
+</html>

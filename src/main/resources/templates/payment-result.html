@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Payment Created</title>
+</head>
+<body>
+
+<h1>결제가 생성되었습니다</h1>
+
+<p>주문번호: <span th:text="${payment.orderId}"></span></p>
+<p>유저 ID: <span th:text="${payment.user.id}"></span></p>
+<p>금액: <span th:text="${payment.amount}"></span></p>
+<p>결제수단: <span th:text="${payment.method}"></span></p>
+<p>상태: <span th:text="${payment.status}"></span></p>
+
+<hr>
+
+<a th:href="@{|/pay/detail/${payment.id}|}">결제 상세 보기</a><br>
+<a href="/pay/list">결제 목록 보기</a>
+
+</body>
+</html>

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Payment List</title>
+</head>
+<body>
+
+<h1>결제 목록</h1>
+
+<table border="1">
+    <tr>
+        <th>ID</th>
+        <th>주문번호</th>
+        <th>금액</th>
+        <th>상태</th>
+        <th>자세히</th>
+    </tr>
+
+    <tr th:each="p : ${payments}">
+        <td th:text="${p.id}"></td>
+        <td th:text="${p.orderId}"></td>
+        <td th:text="${p.amount}"></td>
+        <td th:text="${p.status}"></td>
+        <td><a th:href="@{|/pay/detail/${p.id}|}">보기</a></td>
+    </tr>
+
+</table>
+
+</body>
+</html>
