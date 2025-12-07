@@ -1,21 +1,24 @@
 package com.payflow.payment;
 
 import com.payflow.payment.bo.PaymentBO;
+import com.payflow.payment.client.PortOneClient;
 import com.payflow.payment.domain.Payment;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @Controller
 @RequiredArgsConstructor
+@Slf4j
 public class PaymentController {
 
     private final PaymentBO paymentBO;
+    private final PortOneClient portOneClient;
 
     @GetMapping("/pay/new")
     public String payForm() {
@@ -23,22 +26,53 @@ public class PaymentController {
     }
 
     /**
-     * PG사 결제 페이지로 리다이렉트하는 중간 페이지
-     * form submit을 통해 PG사로 전송
+     * ⭐ PortOne Checkout V2 결제창 띄우는 엔드포인트
      */
-    @GetMapping("/pay/redirect/{id}")
-    public String redirectToPg(@PathVariable Long id, Model model) {
-        Payment payment = paymentBO.getPayment(id)
+    @GetMapping("/pay/request/{orderId}")
+    public String requestPayment(
+            @PathVariable String orderId,
+            Model model
+    ) {
+        Payment payment = paymentBO.getPaymentByOrderId(orderId)
                 .orElseThrow(() -> new RuntimeException("Payment not found"));
 
-        // PG사 결제 파라미터 가져오기
-        Map<String, String> pgParams = paymentBO.getPaymentParams(payment);
-        String pgUrl = paymentBO.getPaymentUrl(payment);
+        // method → PortOne ENUM 매핑
+        String rawMethod = payment.getMethod();
+        String payMethod;
 
-        model.addAttribute("pgUrl", pgUrl);
+        if (rawMethod == null) payMethod = "CARD";
+        else {
+            switch (rawMethod.toLowerCase()) {
+                case "card": payMethod = "CARD";   break;
+                case "vbank": payMethod = "VBANK"; break;
+                default: payMethod = "CARD";
+            }
+        }
+
+        // 🟡 Checkout V2는 channelKey 만으로 PG 자동 선택됨
+        Map<String, Object> pgParams = new HashMap<>();
+        pgParams.put("storeId", "store-fd43ffed-f666-488a-9e41-82609944ff14");
+        pgParams.put("channelKey", "channel-key-cab2ba46-5d95-4455-9533-30a1337e3de2");
+
+        // 주문 정보
+        pgParams.put("orderId", payment.getOrderId());
+        pgParams.put("amount", payment.getAmount());
+        pgParams.put("orderName", "PayFlow 결제");
+        pgParams.put("payMethod", payMethod);
+
+        // 🟡 INICIS 일반결제 필수 buyer 정보
+        pgParams.put("buyerEmail", "test@example.com");
+        pgParams.put("buyerName", "테스트사용자");
+        pgParams.put("buyerPhone", "01012345678");
+
+        // callback URL
+        pgParams.put("successUrl", "http://localhost/pay/success?orderId=" + payment.getOrderId());
+        pgParams.put("failUrl", "http://localhost/pay/fail?orderId=" + payment.getOrderId());
+
+        log.info("📦 PG 파라미터 전달됨: {}", pgParams);
+
         model.addAttribute("pgParams", pgParams);
-
-        return "redirect-pg";  // templates/redirect-pg.html
+        return "payment-request";
     }
 
     @GetMapping("/pay/result")
@@ -47,79 +81,51 @@ public class PaymentController {
             @RequestParam(required = false) String orderId,
             Model model
     ) {
-        if (id != null) {
-            var payment = paymentBO.getPayment(id)
-                    .orElseThrow(() -> new RuntimeException("Payment not found"));
-            model.addAttribute("payment", payment);
-        } else if (orderId != null) {
-            // orderId로 결제 정보 조회
-            var payment = paymentBO.getPaymentByOrderId(orderId)
-                    .orElseThrow(() -> new RuntimeException("Payment not found"));
-            model.addAttribute("payment", payment);
-        }
+        if (id != null) model.addAttribute("payment", paymentBO.getPayment(id).orElseThrow());
+        else if (orderId != null) model.addAttribute("payment", paymentBO.getPaymentByOrderId(orderId).orElseThrow());
         return "payment-result";
     }
 
     @GetMapping("/pay/success")
     public String paymentSuccess(
-            @RequestParam(required = false) String imp_uid,  // PortOne paymentId
-            @RequestParam(required = false) String merchant_uid,  // orderId
-            @RequestParam(required = false) String orderId  // fallback
+            @RequestParam String paymentId,
+            @RequestParam String orderId
     ) {
-        // PortOne에서 successUrl로 리다이렉트될 때 imp_uid와 merchant_uid를 쿼리 파라미터로 전달
-        // merchant_uid가 orderId입니다
-        String actualOrderId = merchant_uid != null ? merchant_uid : orderId;
-        
-        if (actualOrderId == null) {
-            return "redirect:/pay/fail?error=주문번호가 없습니다.";
-        }
+        log.info("💰 결제 성공 콜백 수신 - paymentId={}, orderId={}", paymentId, orderId);
 
-        // 결제 승인 처리 (서버에서 PortOne API 호출)
         try {
-            // PaymentBO를 통해 결제 승인 처리
-            // imp_uid가 있으면 결제 승인 API 호출
-            if (imp_uid != null) {
-                // Payment 정보 조회
-                var paymentOpt = paymentBO.getPaymentByOrderId(actualOrderId);
-                if (paymentOpt.isPresent()) {
-                    var payment = paymentOpt.get();
-                    
-                    // 결제 승인 처리
-                    java.util.Map<String, String> responseData = new java.util.HashMap<>();
-                    responseData.put("paymentId", imp_uid);
-                    responseData.put("orderId", actualOrderId);
-                    responseData.put("amount", String.valueOf(payment.getAmount()));
-                    
-                    paymentBO.processPaymentCallback(responseData);
-                }
-            }
-            
-            return "redirect:/pay/result?orderId=" + actualOrderId;
+            paymentBO.updatePaymentSuccess(orderId, paymentId, null);
+            return "redirect:/pay/result?orderId=" + orderId;
+
         } catch (Exception e) {
+            log.error("❌ 결제 승인 처리 실패: {}", e.getMessage());
             return "redirect:/pay/fail?error=" + e.getMessage();
         }
     }
 
     @GetMapping("/pay/fail")
-    public String paymentFail(@RequestParam(required = false) String error, Model model) {
-        if (error != null) {
-            model.addAttribute("error", error);
-        }
+    public String paymentFail(
+            @RequestParam(required = false) String error,
+            Model model
+    ) {
+        if (error != null) model.addAttribute("error", error);
         return "payment-fail";
     }
 
-    @GetMapping("/pay/detail/{id}")
-    public String paymentDetail(@PathVariable Long id, Model model) {
-        var payment = paymentBO.getPayment(id)
-                .orElseThrow(() -> new RuntimeException("Payment not found"));
-
-        model.addAttribute("payment", payment);
-        return "detail-payment";
+    @GetMapping("/pay/list")
+    public String payList(Model model) {
+        model.addAttribute("payments", paymentBO.getPaymentList());
+        return "list-payment"; // list-payment.html
     }
 
-    @GetMapping("/pay/list")
-    public String paymentList(Model model) {
-        model.addAttribute("payments", paymentBO.getPaymentList());
-        return "list-payment";
+    @GetMapping("/pay/detail/{orderId}")
+    public String payDetail(@PathVariable String orderId,
+                            Model model) {
+
+        Payment payment = paymentBO.getPaymentByOrderId(orderId)
+                .orElseThrow(() -> new RuntimeException("Payment not found: " + orderId));
+
+        model.addAttribute("payment", payment);  // 🔥 핵심 수정
+        return "detail-payment";
     }
 }

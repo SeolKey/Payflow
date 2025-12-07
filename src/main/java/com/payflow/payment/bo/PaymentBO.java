@@ -1,14 +1,11 @@
 package com.payflow.payment.bo;
 
-import com.payflow.payment.client.PgClient;
-import com.payflow.payment.client.PgResponse;
 import com.payflow.payment.domain.Payment;
 import com.payflow.payment.repository.PaymentRepository;
 import com.payflow.user.domain.User;
 import com.payflow.user.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,21 +20,19 @@ public class PaymentBO {
 
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
-    private final PgClient pgClient;  // PG사 클라이언트
 
     @Autowired
     public PaymentBO(
             PaymentRepository paymentRepository,
-            UserRepository userRepository,
-            @Value("${pg.type:portOneClient}") String pgType,
-            Map<String, PgClient> pgClients
+            UserRepository userRepository
     ) {
         this.paymentRepository = paymentRepository;
         this.userRepository = userRepository;
-        this.pgClient = pgClients.getOrDefault(pgType, pgClients.get("portOneClient"));
-        log.info("사용할 PG 클라이언트: {} ({})", pgType, pgClient.getPgName());
     }
 
+    /**
+     * 결제 생성 (기본용)
+     */
     public Payment createPayment(Long userId, int amount, String method) {
 
         User user = userRepository.findById(userId)
@@ -57,26 +52,79 @@ public class PaymentBO {
     }
 
     /**
-     * PG사 결제 페이지 URL 생성
+     * ✅ Checkout V2 준비 단계용 (지금은 로그/검증용만 사용)
      */
-    public String getPaymentUrl(Payment payment) {
-        return pgClient.generatePaymentUrl(payment);
+    public void preparePayment(
+            String paymentId,
+            String orderId,
+            String orderName,
+            int amount,
+            Map<String, Object> deviceInfo
+    ) {
+        log.info("Checkout V2 결제 준비 - paymentId={}, orderId={}, orderName={}, amount={}, deviceInfo={}",
+                paymentId, orderId, orderName, amount, deviceInfo);
+
+        // 필요하면 여기서 orderId 기준으로 Payment 엔티티를 생성/업데이트하는 로직 추가 가능
+        // (user 정보, method 등을 받지 못하니 지금은 DB에 손대지 않고 로그만 찍도록 둠)
     }
 
     /**
-     * PG사 결제 요청 파라미터 생성
+     * ✅ Checkout V2 결제 성공 처리 (공통 로직)
      */
-    public Map<String, String> getPaymentParams(Payment payment) {
-        return pgClient.generatePaymentParams(payment);
+    @Transactional
+    public void updatePaymentSuccess(String orderId, String paymentId, String transactionId) {
+        Payment payment = paymentRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new RuntimeException("Payment not found for orderId: " + orderId));
+
+        // 이미 처리된 경우 다시 건들지 않음
+        if (!"ready".equals(payment.getStatus())) {
+            log.warn("이미 처리된 결제입니다 - orderId: {}, status: {}", orderId, payment.getStatus());
+            return;
+        }
+
+        String tid = (transactionId != null && !transactionId.isBlank())
+                ? transactionId
+                : paymentId;
+
+        payment.setPgTid(tid);
+        payment.setPgResponse("SUCCESS");
+        payment.updateStatus("paid");
+
+        paymentRepository.save(payment);
+
+        log.info("Checkout V2 결제 성공 처리 완료 - orderId={}, paymentId={}, tid={}",
+                orderId, paymentId, tid);
     }
 
     /**
-     * PG사 승인 결과 처리 (Return URL 콜백)
+     * ✅ Checkout V2 결제 실패 처리 (공통 로직)
+     */
+    @Transactional
+    public void updatePaymentFail(String orderId, String message) {
+        Payment payment = paymentRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new RuntimeException("Payment not found for orderId: " + orderId));
+
+        if (!"ready".equals(payment.getStatus())) {
+            log.warn("이미 처리된 결제입니다(실패 처리 시도) - orderId: {}, status: {}", orderId, payment.getStatus());
+            return;
+        }
+
+        payment.setPgResponse("FAIL: " + message);
+        payment.updateStatus("failed");
+
+        paymentRepository.save(payment);
+
+        log.info("Checkout V2 결제 실패 처리 완료 - orderId={}, reason={}", orderId, message);
+    }
+
+    /**
+     * (남겨둔 기존 콜백 처리 – 필요하면 다른 PG 흐름에서 사용)
      */
     @Transactional
     public Payment processPaymentCallback(Map<String, String> responseData) {
         String orderId = responseData.get("orderId");
-        
+        String paymentId = responseData.get("paymentId");
+
         if (orderId == null) {
             throw new RuntimeException("orderId가 없습니다.");
         }
@@ -84,35 +132,21 @@ public class PaymentBO {
         Payment payment = paymentRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new RuntimeException("Payment not found for orderId: " + orderId));
 
-        // 이미 처리된 결제인지 확인
+        // 이미 성공 처리된 경우 방지
         if (!"ready".equals(payment.getStatus())) {
             log.warn("이미 처리된 결제입니다 - orderId: {}, status: {}", orderId, payment.getStatus());
             return payment;
         }
 
-        try {
-            // PG사 응답 검증
-            PgResponse pgResponse = pgClient.verifyPayment(responseData);
+        // Checkout V2에서는 success면 바로 완료 처리
+        payment.updateStatus("paid");
+        payment.setPgTid(paymentId != null ? paymentId : "CHECKOUT-V2");
+        payment.setPgResponse("SUCCESS");
 
-            // 결제 정보 업데이트
-            payment.setPgTid(pgResponse.getPgTid());
-            payment.setPgResponse(pgResponse.getRawResponse());
-            payment.updateStatus(pgResponse.getStatus());
+        paymentRepository.save(payment);
 
-            log.info("PG사 결제 처리 완료 - orderId: {}, status: {}, pgTid: {}", 
-                    orderId, pgResponse.getStatus(), pgResponse.getPgTid());
-
-            return paymentRepository.save(payment);
-
-        } catch (Exception e) {
-            // 실패 시 상태 업데이트
-            payment.updateStatus("failed");
-            payment.setPgResponse("Error: " + e.getMessage());
-            paymentRepository.save(payment);
-            
-            log.error("PG사 결제 처리 실패 - orderId: {}, error: {}", orderId, e.getMessage());
-            throw new RuntimeException("결제 처리 실패: " + e.getMessage(), e);
-        }
+        log.info("Checkout V2 결제 완료 처리 - orderId: {}, paymentId: {}", orderId, paymentId);
+        return payment;
     }
 
     public Optional<Payment> getPayment(Long paymentId) {

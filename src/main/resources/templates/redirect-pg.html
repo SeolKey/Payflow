@@ -4,275 +4,149 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>결제하기 - PayFlow</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <!-- PortOne V2 JavaScript SDK -->
+
+    <!-- PortOne Checkout V2 SDK -->
     <script src="https://cdn.portone.io/v2/browser-sdk.js"></script>
 </head>
+
 <body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="/">
-                <i class="bi bi-wallet2 me-2"></i>PayFlow
-            </a>
-        </div>
-    </nav>
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+        <a class="navbar-brand" href="/">
+            <i class="bi bi-wallet2 me-2"></i>PayFlow
+        </a>
+    </div>
+</nav>
 
-    <div class="container mt-4">
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card shadow">
-                    <div class="card-header bg-primary text-white">
-                        <h3 class="mb-0">
-                            <i class="bi bi-credit-card me-2"></i>결제하기
-                        </h3>
-                    </div>
-                    <div class="card-body p-4">
-                        <div id="payment-info" class="mb-4">
-                            <div class="mb-3">
-                                <strong>주문번호:</strong> <span th:text="${pgParams.orderId}"></span>
-                            </div>
-                            <div class="mb-3">
-                                <strong>결제금액:</strong> <span th:text="${pgParams.amount}"></span>원
-                            </div>
-                            <div class="mb-3">
-                                <strong>상품명:</strong> <span th:text="${pgParams.orderName}"></span>
-                            </div>
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">
+                        <i class="bi bi-credit-card me-2"></i>결제하기
+                    </h3>
+                </div>
+
+                <div class="card-body p-4">
+                    <div id="payment-info" class="mb-4">
+                        <div class="mb-3">
+                            <strong>주문번호:</strong> <span th:text="${pgParams.orderId}"></span>
                         </div>
-
-                        <!-- PortOne V2는 위젯 렌더링이 필요 없음 -->
-
-                        <div class="d-grid gap-2 mt-4">
-                            <button id="payment-request-button" class="btn btn-primary btn-lg">
-                                <i class="bi bi-check-circle me-2"></i>결제하기
-                            </button>
+                        <div class="mb-3">
+                            <strong>결제금액:</strong> <span th:text="${pgParams.amount}"></span>원
+                        </div>
+                        <div class="mb-3">
+                            <strong>상품명:</strong> <span th:text="${pgParams.orderName}"></span>
                         </div>
                     </div>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button id="payment-request-button" class="btn btn-primary btn-lg">
+                            <i class="bi bi-check-circle me-2"></i>결제하기
+                        </button>
+                    </div>
+
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script th:inline="javascript">
-        // DOM이 완전히 로드된 후 실행
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log("=== DOM 로드 완료 ===");
-            
-            // PortOne 결제 파라미터
-            const pgParams = /*[[${pgParams}]]*/ {};
-            const storeId = pgParams.storeId || pgParams.channelKey;  // PortOne은 storeId 사용
-            const channelKey = pgParams.channelKey || pgParams.storeId;  // 호환성을 위해 유지
-            const orderId = pgParams.orderId;
-            const amount = parseInt(pgParams.amount);
-            const orderName = pgParams.orderName || "PayFlow 결제";
-            const successUrl = pgParams.successUrl;
-            const failUrl = pgParams.failUrl;
+<script th:inline="javascript">
+    document.addEventListener("DOMContentLoaded", () => {
 
-            console.log("PortOne 파라미터:", { storeId, channelKey, orderId, amount, orderName, successUrl, failUrl });
-            console.log("전체 pgParams:", pgParams);
+        const pgParams = /*[[${pgParams}]]*/ {};
 
-            // 결제 버튼 요소 확인
-            const paymentButton = document.getElementById("payment-request-button");
-            if (!paymentButton) {
-                console.error("결제 버튼을 찾을 수 없습니다.");
-                alert("결제 버튼을 찾을 수 없습니다.");
-                return;
-            }
-            console.log("결제 버튼 찾기 성공");
+        const storeId = pgParams.storeId;
+        const orderId = pgParams.orderId;
+        const amount = Number(pgParams.amount);
+        const orderName = pgParams.orderName || "PayFlow 결제";
 
-            // 결제 승인 처리 함수
-            async function handlePaymentConfirmation(paymentId, orderId, amount) {
+        // Checkout V2 리다이렉트 URL
+        const successUrl = `/api/pay/success?orderId=${orderId}`;
+        const failUrl = `/api/pay/fail?orderId=${orderId}`;
+
+        const payButton = document.getElementById("payment-request-button");
+
+        if (!payButton) {
+            alert("결제 버튼을 찾을 수 없습니다.");
+            return;
+        }
+
+        // SDK 로드 대기
+        function waitForSDK(callback, maxAttempts = 40) {
+            let attempts = 0;
+            const interval = setInterval(() => {
+                if (typeof PortOne !== "undefined") {
+                    clearInterval(interval);
+                    callback();
+                } else if (++attempts >= maxAttempts) {
+                    clearInterval(interval);
+                    alert("PortOne SDK 로드 실패. 새로고침 해주세요.");
+                }
+            }, 100);
+        }
+
+        waitForSDK(() => {
+            console.log("PortOne SDK 로드 완료!");
+
+            payButton.addEventListener("click", async () => {
+                payButton.disabled = true;
+                payButton.textContent = "결제 준비 중...";
+
                 try {
-                    console.log("결제 승인 요청 시작 - paymentId:", paymentId);
-                    
-                    const response = await fetch("/api/pay/confirm", {
+                    // 서버 + 클라이언트 공통 결제 ID 생성
+                    const paymentId = `PAY-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+
+                    // ⭐ 1) 서버에 결제 준비 요청 → DB 저장
+                    const prepareResponse = await fetch("/api/pay/prepare", {
                         method: "POST",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
+                        headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                             paymentId: paymentId,
                             orderId: orderId,
+                            orderName: orderName,
                             amount: amount
                         })
                     });
 
-                    const result = await response.json();
-                    console.log("결제 승인 결과:", result);
+                    const prepareResult = await prepareResponse.json();
 
-                    if (result.success) {
-                        window.location.href = result.redirectUrl;
-                    } else {
-                        alert("결제 승인 실패: " + result.message);
-                        const paymentButton = document.getElementById("payment-request-button");
-                        if (paymentButton) {
-                            paymentButton.disabled = false;
-                            paymentButton.textContent = "결제하기";
-                        }
+                    if (!prepareResult.success) {
+                        alert("결제 생성 실패: " + prepareResult.message);
+                        payButton.disabled = false;
+                        payButton.textContent = "결제하기";
+                        return;
                     }
-                } catch (error) {
-                    console.error("결제 승인 처리 중 오류:", error);
-                    alert("결제 승인 처리 중 오류가 발생했습니다: " + error.message);
-                    const paymentButton = document.getElementById("payment-request-button");
-                    if (paymentButton) {
-                        paymentButton.disabled = false;
-                        paymentButton.textContent = "결제하기";
-                    }
-                }
-            }
 
-            // PortOne SDK 로드 대기 함수
-            function waitForPortOne(callback, maxAttempts = 50) {
-                let attempts = 0;
-                const checkInterval = setInterval(function() {
-                    attempts++;
-                    console.log(`PortOne SDK 로드 확인 시도 ${attempts}/${maxAttempts}:`, typeof PortOne);
-                    
-                    if (typeof PortOne !== 'undefined') {
-                        clearInterval(checkInterval);
-                        console.log("PortOne SDK 로드 완료!");
-                        callback();
-                    } else if (attempts >= maxAttempts) {
-                        clearInterval(checkInterval);
-                        console.error("PortOne SDK 로드 실패 - 타임아웃");
-                        alert("결제 위젯을 불러올 수 없습니다. 페이지를 새로고침해주세요.");
-                        paymentButton.disabled = true;
-                        paymentButton.textContent = "결제 위젯 로드 실패";
-                    }
-                }, 100);
-            }
-
-            // PortOne V2 SDK가 로드되면 실행
-            waitForPortOne(function() {
-                try {
-                    console.log("=== PortOne V2 초기화 시작 ===");
-                    console.log("PortOne 객체:", PortOne);
-                    console.log("PortOne 객체 키:", Object.keys(PortOne));
-                    
-                    if (!storeId) {
-                        throw new Error("storeId가 없습니다. pgParams: " + JSON.stringify(pgParams));
-                    }
-                    
-                    console.log("PortOne V2 Store ID:", storeId);
-                    
-                    // PortOne V2는 requestPayment를 직접 사용
-                    if (typeof PortOne.requestPayment !== 'function') {
-                        throw new Error("PortOne.requestPayment 함수를 찾을 수 없습니다. PortOne 객체: " + JSON.stringify(Object.keys(PortOne)));
-                    }
-                    
-                    console.log("PortOne V2 SDK 준비 완료");
-
-                    // 결제 요청 버튼 클릭 이벤트
-                    paymentButton.addEventListener("click", async function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        
-                        console.log("=== 결제 요청 버튼 클릭 이벤트 발생 ===");
-                        
-                        try {
-                            console.log("=== PortOne V2 결제 요청 시작 ===");
-                            console.log("storeId:", storeId);
-                            console.log("orderId:", orderId);
-                            console.log("amount:", amount);
-                            console.log("orderName:", orderName);
-                            console.log("successUrl:", successUrl);
-                            console.log("failUrl:", failUrl);
-                            
-                            // 버튼 비활성화
-                            paymentButton.disabled = true;
-                            paymentButton.textContent = "결제 준비 중...";
-                            
-                            // 1단계: 클라이언트에서 paymentId 생성 (PortOne V2 필수)
-                            const paymentId = `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                            console.log("생성된 paymentId:", paymentId);
-                            
-                            // 2단계: deviceInfo 생성 (PortOne V2 필수)
-                            // PortOne V2는 platform으로 "WEB" 사용 (대문자)
-                            const deviceInfo = {
-                                platform: "WEB",              // 필수: platform (서버에서 platform과 platformType 둘 다 설정, "WEB" 사용, 대문자)
-                                ipAddress: "127.0.0.1"        // 필수: IP 주소 (서버에서 ip로 변환)
-                            };
-                            console.log("생성된 deviceInfo:", deviceInfo);
-                            console.log("deviceInfo 타입:", typeof deviceInfo);
-                            console.log("deviceInfo 키:", Object.keys(deviceInfo));
-                            
-                            // 3단계: 서버에서 결제 준비 API 호출 (paymentId, orderName, deviceInfo 포함)
-                            console.log("결제 준비 API 호출 시작");
-                            
-                            const prepareRequestBody = {
-                                paymentId: paymentId,  // 클라이언트에서 생성한 paymentId 전달
-                                orderId: orderId,
-                                orderName: orderName,  // 필수: 주문명
-                                amount: amount,
-                                deviceInfo: deviceInfo  // 필수: 디바이스 정보
-                            };
-                            
-                            console.log("결제 준비 요청 바디:", prepareRequestBody);
-                            console.log("deviceInfo 포함 여부:", prepareRequestBody.hasOwnProperty("deviceInfo"));
-                            console.log("deviceInfo 값:", prepareRequestBody.deviceInfo);
-                            
-                            const prepareResponse = await fetch("/api/pay/prepare", {
-                                method: "POST",
-                                headers: {
-                                    "Content-Type": "application/json"
-                                },
-                                body: JSON.stringify(prepareRequestBody)
-                            });
-
-                            const prepareResult = await prepareResponse.json();
-                            console.log("결제 준비 결과:", prepareResult);
-
-                            if (!prepareResult.success) {
-                                throw new Error("결제 준비 실패: " + (prepareResult.message || "알 수 없는 오류"));
-                            }
-
-                            console.log("결제 준비 완료, paymentId:", paymentId);
-                            
-                            // 버튼 텍스트 변경
-                            paymentButton.textContent = "결제 처리 중...";
-                            
-                            // 2단계: PortOne V2 requestPayment 호출 (paymentId 포함)
-                            await PortOne.requestPayment({
-                                paymentId: paymentId,
-                                storeId: storeId,
-                                orderId: orderId,
-                                orderName: orderName,
-                                totalAmount: amount,
-                                currency: 'KRW',
-                                successUrl: successUrl,
-                                failUrl: failUrl
-                            });
-
-                            console.log("결제 위젯이 열렸습니다. 사용자가 결제를 완료하면 successUrl로 리다이렉트됩니다.");
-                            
-                            // requestPayment는 결제 위젯을 열고, 사용자가 결제를 완료하면
-                            // 자동으로 successUrl 또는 failUrl로 리다이렉트됩니다.
-                            // 따라서 여기서는 추가 처리가 필요 없습니다.
-                        } catch (error) {
-                            console.error("결제 처리 중 오류:", error);
-                            console.error("오류 상세:", error.stack);
-                            alert("결제 처리 중 오류가 발생했습니다: " + (error.message || error));
-                            paymentButton.disabled = false;
-                            paymentButton.textContent = "결제하기";
-                        }
+                    // ⭐ 2) PortOne Checkout V2 결제 요청
+                    await PortOne.requestPayment({
+                        storeId: storeId,
+                        paymentId: paymentId,
+                        orderId: orderId,
+                        orderName: orderName,
+                        totalAmount: amount,
+                        currency: "KRW",
+                        successUrl: successUrl,
+                        failUrl: failUrl
                     });
-                    
-                    console.log("결제 버튼 이벤트 리스너 등록 완료");
-                    
-                    // 테스트: 버튼 클릭 가능 여부 확인
-                    paymentButton.style.cursor = "pointer";
-                    console.log("결제 버튼 준비 완료");
-                    
-                } catch (error) {
-                    console.error("PortOne 위젯 초기화 실패:", error);
-                    console.error("오류 상세:", error.stack);
-                    alert("결제 위젯 초기화에 실패했습니다: " + (error.message || error));
-                    paymentButton.disabled = true;
-                    paymentButton.textContent = "초기화 실패";
+
+                    // PortOne이 자동으로 successUrl 또는 failUrl로 이동함
+
+                } catch (err) {
+                    console.error("결제 오류:", err);
+                    alert("결제 처리 중 오류: " + err.message);
+                    payButton.disabled = false;
+                    payButton.textContent = "결제하기";
                 }
             });
         });
-    </script>
+    });
+</script>
+
 </body>
 </html>
