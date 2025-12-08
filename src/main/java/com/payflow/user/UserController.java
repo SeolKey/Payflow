@@ -19,7 +19,7 @@ public class UserController {
 
     @GetMapping("/signup")
     public String signupForm() {
-        return "signup";
+        return "user/signup";
     }
 
     @PostMapping("/signup")
@@ -45,7 +45,7 @@ public class UserController {
         if (session.getAttribute("userId") != null) {
             return "redirect:/";
         }
-        return "login";
+        return "user/login";
     }
 
     @PostMapping("/login")
@@ -71,7 +71,7 @@ public class UserController {
         }
     }
 
-    @PostMapping("/logout")
+    @GetMapping("/logout")
     public String logout(HttpSession session) {
         session.invalidate();
         return "redirect:/login";
@@ -80,6 +80,6 @@ public class UserController {
     @GetMapping("/users")
     public String users(Model model) {
         model.addAttribute("users", userBO.getUserList());
-        return "users";
+        return "user/list";
     }
 }

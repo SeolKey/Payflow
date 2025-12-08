@@ -1,6 +1,7 @@
 package com.payflow.payment;
 
 import com.payflow.payment.bo.PaymentBO;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -16,13 +17,22 @@ public class PaymentRestController {
 
     private final PaymentBO paymentBO;
 
-    /** ✅ 결제 생성 API (HTML에서 FormData로 호출함) */
+    /** ✅ 결제 생성 API (세션에서 userId 자동 가져옴) */
     @PostMapping("/create")
     public ResponseEntity<Map<String, Object>> createPayment(
-            @RequestParam Long userId,
             @RequestParam int amount,
-            @RequestParam String method
+            @RequestParam String method,
+            HttpSession session
     ) {
+        // 세션에서 로그인된 사용자 ID 가져오기
+        Long userId = (Long) session.getAttribute("userId");
+        
+        if (userId == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "로그인이 필요합니다."
+            ));
+        }
 
         var payment = paymentBO.createPayment(userId, amount, method);
 

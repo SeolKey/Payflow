@@ -42,7 +42,7 @@ public class MockPgController {
         model.addAttribute("method", method);
         model.addAttribute("returnUrl", returnUrl != null ? returnUrl : "http://localhost:80/api/pay/callback");
         
-        return "mock-pg";
+        return "payment/mock-pg";
     }
 
     @PostMapping("/pg/mock/process")

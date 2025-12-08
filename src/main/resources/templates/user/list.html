@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(title='사용자 목록')}"></head>
+
+<body>
+<nav th:replace="~{fragments/layout :: navbar(active='users')}"></nav>
+
+<div class="container mt-4">
+    <div class="main-card">
+        <div class="card-header-custom">
+            <h3>
+                <i class="bi bi-people"></i>사용자 목록
+            </h3>
+        </div>
+        <div class="card-body-custom p-0">
+            <div class="table-responsive">
+                <table class="table table-custom">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>이름</th>
+                            <th>이메일</th>
+                            <th>가입일</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="user : ${users}">
+                            <td th:text="${user.id}"></td>
+                            <td th:text="${user.name}"></td>
+                            <td th:text="${user.email}"></td>
+                            <td th:text="${#temporals.format(user.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-4" th:if="${users == null or users.empty}">
+                <div class="empty-state">
+                    <i class="bi bi-people"></i>
+                    <h5>등록된 사용자가 없습니다</h5>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-4">
+        <a href="/" class="btn-secondary-custom">
+            <i class="bi bi-arrow-left me-2"></i>홈으로
+        </a>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+
+</body>
+</html>
+
+

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(title='로그인')}"></head>
+
+<body>
+<div class="container">
+    <div class="row justify-content-center align-items-center min-vh-100">
+        <div class="col-md-6 col-lg-4">
+            <div class="main-card">
+                <div class="card-body-custom p-5">
+                    <div class="text-center mb-4">
+                        <a href="/" class="navbar-brand justify-content-center mb-3">
+                            <i class="bi bi-wallet2"></i>PayFlow
+                        </a>
+                        <h2 class="mt-3 mb-2">로그인</h2>
+                        <p class="text-secondary">PayFlow에 로그인하세요</p>
+                    </div>
+
+                    <!-- 에러 메시지 -->
+                    <div th:if="${error}" class="alert alert-danger-custom alert-custom" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <span th:text="${error}"></span>
+                    </div>
+
+                    <!-- 성공 메시지 -->
+                    <div th:if="${success}" class="alert alert-success-custom alert-custom" role="alert">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        <span th:text="${success}"></span>
+                    </div>
+
+                    <form id="loginForm" method="post" action="/login">
+                        <div class="mb-3">
+                            <label for="email" class="form-label">이메일</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                                <input type="email" class="form-control" id="email" name="email" required 
+                                       placeholder="example@email.com">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">비밀번호</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                                <input type="password" class="form-control" id="password" name="password" required 
+                                       placeholder="비밀번호를 입력하세요">
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 mb-3">
+                            <button type="submit" class="btn btn-primary-custom">
+                                <i class="bi bi-box-arrow-in-right me-2"></i>로그인
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="text-center">
+                        <p class="mb-0 text-secondary">계정이 없으신가요? <a href="/signup" class="text-accent">회원가입</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+
+</body>
+</html>
+
+

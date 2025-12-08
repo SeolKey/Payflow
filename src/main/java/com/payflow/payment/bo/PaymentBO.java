@@ -160,4 +160,37 @@ public class PaymentBO {
     public List<Payment> getPaymentList() {
         return paymentRepository.findAll();
     }
+
+    /**
+     * 정렬된 결제 목록 조회
+     * @param sortBy 정렬 기준: latest(최신순), oldest(오래된순), orderId(주문번호순), highAmount(고액순), lowAmount(저액순)
+     */
+    public List<Payment> getPaymentListSorted(String sortBy) {
+        List<Payment> payments = paymentRepository.findAll();
+        
+        if (sortBy == null || sortBy.isEmpty()) {
+            sortBy = "latest";
+        }
+        
+        switch (sortBy) {
+            case "oldest":
+                payments.sort((a, b) -> a.getCreatedAt().compareTo(b.getCreatedAt()));
+                break;
+            case "orderId":
+                payments.sort((a, b) -> a.getOrderId().compareTo(b.getOrderId()));
+                break;
+            case "highAmount":
+                payments.sort((a, b) -> Integer.compare(b.getAmount(), a.getAmount()));
+                break;
+            case "lowAmount":
+                payments.sort((a, b) -> Integer.compare(a.getAmount(), b.getAmount()));
+                break;
+            case "latest":
+            default:
+                payments.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
+                break;
+        }
+        
+        return payments;
+    }
 }

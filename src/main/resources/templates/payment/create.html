@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(title='결제 생성')}"></head>
+
+<body>
+<nav th:replace="~{fragments/layout :: navbar(active='pay-new')}"></nav>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-7 col-lg-6">
+            <div class="main-card">
+                <div class="card-header-custom">
+                    <h3>
+                        <i class="bi bi-credit-card-2-front"></i>새 결제 생성
+                    </h3>
+                </div>
+
+                <div class="card-body-custom">
+                    <!-- 로그인 필요 안내 (비로그인 시) -->
+                    <div th:if="${session.userId == null}" class="alert alert-info-custom alert-custom text-center">
+                        <i class="bi bi-exclamation-circle me-2"></i>
+                        결제를 생성하려면 <a href="/login" class="text-accent fw-bold">로그인</a>이 필요합니다.
+                    </div>
+                    
+                    <form id="paymentForm" onsubmit="return false;" th:if="${session.userId != null}">
+                        <!-- 로그인한 사용자 정보 표시 -->
+                        <div class="mb-4">
+                            <div class="user-info-box">
+                                <i class="bi bi-person-circle"></i>
+                                <div>
+                                    <small class="text-secondary">결제자</small>
+                                    <div class="fw-semibold" th:text="${session.userName}">사용자</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="amount" class="form-label">
+                                <i class="bi bi-cash-stack me-1"></i>결제 금액
+                            </label>
+                            <div class="amount-input-wrapper">
+                                <input type="number" class="form-control" id="amount" name="amount" 
+                                       placeholder="0" required min="1">
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class="bi bi-credit-card me-1"></i>결제 방식
+                            </label>
+                            <div class="d-flex gap-3">
+                                <label class="method-option flex-fill selected" data-method="card">
+                                    <input type="radio" name="method" value="card" checked class="d-none">
+                                    <div class="method-icon">
+                                        <i class="bi bi-credit-card"></i>
+                                    </div>
+                                    <div class="method-info">
+                                        <div class="fw-semibold">카드 결제</div>
+                                        <small>신용/체크카드</small>
+                                    </div>
+                                </label>
+                                <label class="method-option flex-fill" data-method="vbank">
+                                    <input type="radio" name="method" value="vbank" class="d-none">
+                                    <div class="method-icon">
+                                        <i class="bi bi-bank"></i>
+                                    </div>
+                                    <div class="method-info">
+                                        <div class="fw-semibold">가상계좌</div>
+                                        <small>무통장입금</small>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="d-grid mt-4">
+                            <button id="submitBtn" class="btn btn-primary-custom btn-lg">
+                                <i class="bi bi-lightning-charge me-2"></i>결제 생성하기
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <!-- 비로그인 시 로그인 버튼 -->
+                    <div th:if="${session.userId == null}" class="d-grid mt-3">
+                        <a href="/login" class="btn btn-primary-custom btn-lg">
+                            <i class="bi bi-box-arrow-in-right me-2"></i>로그인하기
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+
+<script>
+    // 결제 방식 선택 토글
+    document.querySelectorAll('.method-option').forEach(option => {
+        option.addEventListener('click', () => {
+            document.querySelectorAll('.method-option').forEach(o => o.classList.remove('selected'));
+            option.classList.add('selected');
+            option.querySelector('input[type="radio"]').checked = true;
+        });
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const form = document.getElementById("paymentForm");
+        const submitBtn = document.getElementById("submitBtn");
+
+        submitBtn.addEventListener("click", async function (event) {
+            event.preventDefault();
+            console.log("⚡ 폼 제출 이벤트 실행됨");
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>처리 중...';
+
+            const formData = new FormData(form);
+
+            const response = await fetch("/api/pay/create", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await response.json();
+            console.log("서버 응답:", data);
+
+            if (data.success) {
+                window.location.href = "/pay/request/" + data.orderId;
+            } else {
+                alert("결제 생성 실패: " + data.message);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-lightning-charge me-2"></i>결제 생성하기';
+            }
+        });
+    });
+</script>
+
+</body>
+</html>

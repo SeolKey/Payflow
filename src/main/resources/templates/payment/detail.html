@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(title='결제 상세 정보')}"></head>
+
+<body>
+<nav th:replace="~{fragments/layout :: navbar(active='pay-list')}"></nav>
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10 col-lg-8">
+            <div class="main-card">
+                <div class="card-header-custom">
+                    <h3>
+                        <i class="bi bi-info-circle"></i>결제 상세 정보
+                    </h3>
+                </div>
+                <div class="card-body-custom">
+                    <div class="table-wrapper">
+                        <table class="detail-table">
+                            <tbody>
+                                <tr>
+                                    <th>ID</th>
+                                    <td th:text="${payment.id}"></td>
+                                </tr>
+                                <tr>
+                                    <th>주문번호</th>
+                                    <td><span class="order-id" th:text="${payment.orderId}"></span></td>
+                                </tr>
+                                <tr>
+                                    <th>유저 ID</th>
+                                    <td th:text="${payment.user.id}"></td>
+                                </tr>
+                                <tr>
+                                    <th>금액</th>
+                                    <td class="amount" th:text="${#numbers.formatDecimal(payment.amount, 0, 'COMMA', 0, 'POINT')} + '원'"></td>
+                                </tr>
+                                <tr>
+                                    <th>결제수단</th>
+                                    <td th:text="${payment.method}"></td>
+                                </tr>
+                                <tr>
+                                    <th>상태</th>
+                                    <td>
+                                        <span class="badge-custom badge-ready" th:if="${payment.status == 'ready'}">대기중</span>
+                                        <span class="badge-custom badge-completed" th:if="${payment.status == 'completed'}">완료</span>
+                                        <span class="badge-custom badge-failed" th:if="${payment.status == 'failed'}">실패</span>
+                                        <span th:if="${payment.status != 'ready' && payment.status != 'completed' && payment.status != 'failed'}" 
+                                              th:text="${payment.status}"></span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>생성일</th>
+                                    <td th:text="${#temporals.format(payment.createdAt, 'yyyy-MM-dd HH:mm:ss')}"></td>
+                                </tr>
+                                <tr>
+                                    <th>수정일</th>
+                                    <td th:text="${#temporals.format(payment.updatedAt, 'yyyy-MM-dd HH:mm:ss')}"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="mt-4">
+                        <a href="/pay/list" class="btn-secondary-custom">
+                            <i class="bi bi-arrow-left"></i>결제 목록으로 돌아가기
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+
+</body>
+</html>

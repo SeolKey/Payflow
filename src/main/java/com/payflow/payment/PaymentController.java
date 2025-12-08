@@ -22,7 +22,7 @@ public class PaymentController {
 
     @GetMapping("/pay/new")
     public String payForm() {
-        return "create-payment";
+        return "payment/create";
     }
 
     /**
@@ -72,7 +72,7 @@ public class PaymentController {
         log.info("📦 PG 파라미터 전달됨: {}", pgParams);
 
         model.addAttribute("pgParams", pgParams);
-        return "payment-request";
+        return "payment/request";
     }
 
     @GetMapping("/pay/result")
@@ -83,7 +83,7 @@ public class PaymentController {
     ) {
         if (id != null) model.addAttribute("payment", paymentBO.getPayment(id).orElseThrow());
         else if (orderId != null) model.addAttribute("payment", paymentBO.getPaymentByOrderId(orderId).orElseThrow());
-        return "payment-result";
+        return "payment/result";
     }
 
     @GetMapping("/pay/success")
@@ -109,13 +109,17 @@ public class PaymentController {
             Model model
     ) {
         if (error != null) model.addAttribute("error", error);
-        return "payment-fail";
+        return "payment/fail";
     }
 
     @GetMapping("/pay/list")
-    public String payList(Model model) {
-        model.addAttribute("payments", paymentBO.getPaymentList());
-        return "list-payment"; // list-payment.html
+    public String payList(
+            @RequestParam(required = false, defaultValue = "latest") String sort,
+            Model model
+    ) {
+        model.addAttribute("payments", paymentBO.getPaymentListSorted(sort));
+        model.addAttribute("currentSort", sort);
+        return "payment/list";
     }
 
     @GetMapping("/pay/detail/{orderId}")
@@ -125,7 +129,7 @@ public class PaymentController {
         Payment payment = paymentBO.getPaymentByOrderId(orderId)
                 .orElseThrow(() -> new RuntimeException("Payment not found: " + orderId));
 
-        model.addAttribute("payment", payment);  // 🔥 핵심 수정
-        return "detail-payment";
+        model.addAttribute("payment", payment);
+        return "payment/detail";
     }
 }

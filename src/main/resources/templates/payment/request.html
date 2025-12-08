@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(title='결제하기')}">
+</head>
+
+<body>
+<!-- PortOne Checkout V2 SDK -->
+<script src="https://cdn.portone.io/v2/browser-sdk.js"></script>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="main-card">
+                <div class="card-body-custom text-center p-5">
+                    <div class="spinner-border text-primary mb-4" role="status" style="width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h2>결제창을 여는 중입니다...</h2>
+                    <p class="text-secondary mt-2">잠시만 기다려주세요</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+
+<script th:inline="javascript">
+    const pgParams = /*[[${pgParams}]]*/ {};
+
+    console.log("📦 PG Params:", pgParams);
+
+    const storeId = pgParams.storeId;
+    const channelKey = pgParams.channelKey;
+
+    const orderId = pgParams.orderId;
+    const amount = Number(pgParams.amount);
+    const orderName = pgParams.orderName;
+    const payMethod = pgParams.payMethod;
+
+    // ⭐ PortOne V2는 customer 객체로 전달해야 함
+    const buyerEmail = pgParams.buyerEmail;
+    const buyerName = pgParams.buyerName;
+    const buyerPhone = pgParams.buyerPhone;
+
+    const successUrl = pgParams.successUrl;
+    const failUrl = pgParams.failUrl;
+
+    (async () => {
+        try {
+            const response = await PortOne.requestPayment({
+                storeId: storeId,
+                channelKey: channelKey,
+
+                paymentId: "PAY-" + Date.now(),
+                orderName: orderName,
+                totalAmount: amount,
+
+                payMethod: payMethod,
+                currency: "KRW",
+
+                // ⭐ PortOne V2 필수: customer 객체로 구매자 정보 전달
+                customer: {
+                    fullName: buyerName,
+                    phoneNumber: buyerPhone,
+                    email: buyerEmail
+                },
+
+                // ⭐ 결제 완료 후 리다이렉트 URL (모바일 환경용)
+                redirectUrl: successUrl
+            });
+
+            console.log("📦 결제 응답:", response);
+
+            // 결제 결과 처리 (PC 환경에서는 response가 바로 반환됨)
+            if (response.code != null) {
+                // 에러 발생
+                alert("결제 실패: " + response.message);
+                window.location.href = failUrl + "&error=" + encodeURIComponent(response.message);
+            } else {
+                // 결제 성공 - paymentId를 서버로 전달
+                window.location.href = successUrl + "&paymentId=" + response.paymentId;
+            }
+
+        } catch (e) {
+            console.error("🚨 결제창 호출 실패:", e);
+            alert("결제창 호출 실패: " + (e?.message || e));
+        }
+    })();
+</script>
+
+</body>
+</html>

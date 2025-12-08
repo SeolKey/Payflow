@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<!-- ========================================
+     HEAD Fragment - 공통 CSS 및 폰트 로드
+     사용법: <head th:replace="~{fragments/layout :: head(title='페이지 제목')}">
+     ======================================== -->
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title} + ' - PayFlow'">PayFlow</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link th:href="@{/css/common.css}" rel="stylesheet">
+</head>
+
+<!-- ========================================
+     NAVBAR Fragment - 반응형 네비게이션 바
+     사용법: <nav th:replace="~{fragments/layout :: navbar(active='pay-new')}">
+     active 옵션: 'home', 'pay-new', 'pay-list', 'users'
+     ======================================== -->
+<nav th:fragment="navbar(active)" class="navbar navbar-expand-lg navbar-custom">
+    <div class="container">
+        <a class="navbar-brand" href="/">
+            <i class="bi bi-wallet2"></i>PayFlow
+        </a>
+        
+        <!-- 우측 영역: 환영메시지 + 테마토글 + 햄버거 -->
+        <div class="d-flex align-items-center">
+            <!-- 환영 메시지 / 로그인 필요 (항상 표시) -->
+            <span class="nav-welcome me-2" th:if="${session.userId != null}">
+                <i class="bi bi-person-circle me-1"></i>
+                <span th:text="${session.userName} + '님 환영합니다!'"></span>
+            </span>
+            <span class="nav-welcome nav-welcome-guest me-2" th:unless="${session.userId != null}">
+                <i class="bi bi-person-circle me-1"></i>
+                <span>로그인이 필요합니다.</span>
+            </span>
+            
+            <!-- 테마 토글 -->
+            <button class="theme-toggle me-2 me-lg-0" onclick="toggleTheme()" title="테마 변경">
+                <i class="bi bi-sun-fill" id="theme-icon"></i>
+            </button>
+            
+            <!-- 햄버거 메뉴 버튼 (모바일) -->
+            <button class="navbar-toggler d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" 
+                    aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <i class="bi bi-list"></i>
+            </button>
+        </div>
+        
+        <!-- 네비게이션 메뉴 -->
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <div class="navbar-nav ms-auto align-items-lg-center">
+                <a class="nav-link" th:classappend="${active == 'pay-new'} ? 'active'" href="/pay/new">
+                    <i class="bi bi-plus-circle d-lg-none me-2"></i>결제 생성
+                </a>
+                <a class="nav-link" th:classappend="${active == 'pay-list'} ? 'active'" href="/pay/list">
+                    <i class="bi bi-list-ul d-lg-none me-2"></i>결제 목록
+                </a>
+                <a class="nav-link" th:classappend="${active == 'users'} ? 'active'" href="/users">
+                    <i class="bi bi-people d-lg-none me-2"></i>사용자 목록
+                </a>
+                <a class="nav-link" th:if="${session.userId != null}" href="/logout">
+                    <i class="bi bi-box-arrow-right d-lg-none me-2"></i>로그아웃
+                </a>
+                <a class="nav-link" th:unless="${session.userId != null}" href="/login">
+                    <i class="bi bi-box-arrow-in-right d-lg-none me-2"></i>로그인
+                </a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- ========================================
+     FOOTER Fragment - 푸터
+     사용법: <footer th:replace="~{fragments/layout :: footer}"></footer>
+     ======================================== -->
+<footer th:fragment="footer" class="footer-custom">
+    <div class="container">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <i class="bi bi-wallet2"></i>
+                <span>PayFlow</span>
+            </div>
+            <div class="footer-info">
+                <p>Made by <strong>SeolKey</strong></p>
+                <p class="footer-copyright">© 2025 PayFlow. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- ========================================
+     SCRIPTS Fragment - Bootstrap JS 및 테마 토글
+     사용법: <div th:replace="~{fragments/layout :: scripts}"></div>
+     ======================================== -->
+<div th:fragment="scripts">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 테마 토글 함수
+        function toggleTheme() {
+            const body = document.body;
+            const icon = document.getElementById('theme-icon');
+            const currentTheme = body.getAttribute('data-theme');
+            
+            if (currentTheme === 'light') {
+                body.removeAttribute('data-theme');
+                if (icon) icon.className = 'bi bi-sun-fill';
+                localStorage.setItem('theme', 'dark');
+            } else {
+                body.setAttribute('data-theme', 'light');
+                if (icon) icon.className = 'bi bi-moon-fill';
+                localStorage.setItem('theme', 'light');
+            }
+        }
+
+        // 페이지 로드 시 저장된 테마 적용
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            const icon = document.getElementById('theme-icon');
+            if (savedTheme === 'light') {
+                document.body.setAttribute('data-theme', 'light');
+                if (icon) icon.className = 'bi bi-moon-fill';
+            }
+        })();
+    </script>
+</div>
+
+</html>
+
+
